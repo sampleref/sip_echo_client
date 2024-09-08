@@ -13,9 +13,10 @@ import (
 
 var sipCalls = make(map[string]chan *SipMessage)
 
-func RunSipUasDialog(username string, host string, port int) {
+func RunSipUasDialog(username string, localHost string, port int, publicHost string) {
 
-	log.Info().Msg("Running UAS With host " + host + ":" + strconv.Itoa(port))
+	log.Info().Msg("Running UAS With localHost " + localHost + ":" + strconv.Itoa(port) +
+		" PublicHost: " + publicHost)
 	sip.SIPDebug = true
 
 	sig := make(chan os.Signal)
@@ -26,7 +27,7 @@ func RunSipUasDialog(username string, host string, port int) {
 	client, _ := sipgo.NewClient(ua) // Creating client handle
 
 	uasContact := sip.ContactHeader{
-		Address: sip.Uri{User: username, Host: host, Port: port},
+		Address: sip.Uri{User: username, Host: publicHost, Port: port},
 	}
 	dialogSrv := sipgo.NewDialogServer(client, uasContact)
 
@@ -49,7 +50,7 @@ func RunSipUasDialog(username string, host string, port int) {
 				tx:          tx,
 				dialogSrv:   dialogSrv,
 				sipRequests: &reqChan,
-				hostname:    host,
+				hostname:    publicHost,
 				sipPort:     port,
 			}
 			go sipCall.HandleSipRequests()
@@ -91,7 +92,7 @@ func RunSipUasDialog(username string, host string, port int) {
 	})
 
 	log.Info().Msg("Starting SIP Server")
-	panic(srv.ListenAndServe(context.TODO(), "udp", fmt.Sprintf("%s:%d", host, port)))
+	panic(srv.ListenAndServe(context.TODO(), "udp", fmt.Sprintf("%s:%d", localHost, port)))
 	log.Info().Msg("Stopping SIP Server")
 	select {
 	case <-sig:
