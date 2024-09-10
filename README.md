@@ -20,4 +20,4 @@
 `docker buildx build --platform linux/amd64 --network host -t sip_go_client:1.0 -f ./build/Dockerfile .`
 
 #### Run binary 
-`./sip_client_amd64 -h <LOCAL_IP> -p <PUBLIC_IP> -mp 40100`
+`./sip_client_amd64 -h <LOCAL_IP> -public <PUBLIC_IP> -mp 40100`
