@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/rs/zerolog/log"
 	"net"
-	"sip_example/sip_util"
+	"sip_echo_client/sip_util"
 	"strconv"
 )
 

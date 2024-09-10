@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"sip_example/sip_uas"
-	"sip_example/sip_util"
+	"sip_echo_client/sip_uas"
+	"sip_echo_client/sip_util"
 )
 
 func main() {

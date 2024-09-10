@@ -1,4 +1,4 @@
-module sip_example
+module sip_echo_client
 
 go 1.21
 
