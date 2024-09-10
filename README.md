@@ -5,7 +5,7 @@
 4. Options:  
    **-u**, Default: "local", "SIP Username"    
    **-h**, Default: "0.0.0.0", "sip client host"  
-   **-public**, Default: "0.0.0.0", "sip client public host/ip"
+   **-public**, Default: "0.0.0.0", "sip client public host/ip"  
    **-p**, Default: 5063, "sip port"   
    **-d**, Default: "info", "Log Level: trace/debug/info"  
    **-mp**, Default: 40100, "Media Port Starts from and next 100 ports" 
