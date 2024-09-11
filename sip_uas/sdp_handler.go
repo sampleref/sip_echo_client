@@ -11,6 +11,8 @@ import (
 var (
 	AUDIO_CODEC = "PCMU"
 	VIDEO_CODEC = "H264"
+
+	CRYPTO = "crypto"
 )
 
 type SDPSession struct {
@@ -56,6 +58,19 @@ func (sdpSession *SDPSession) generateAnswer(offer []byte, unicastAddress string
 		return nil, err
 	}
 
+	audioAttributes := []sdp.Attribute{
+		{Key: "rtpmap", Value: "0 PCMU/8000"},
+		{Key: "ptime", Value: "20"},
+		{Key: "maxptime", Value: "150"},
+		{Key: "sendrecv"},
+	}
+
+	videoAttributes := []sdp.Attribute{
+		{Key: "rtpmap", Value: "103 H264/90000"},
+		{Key: "fmtp", Value: "103 packetization-mode=1;profile-level-id=42e01f"},
+		{Key: "sendrecv"},
+	}
+
 	sdpSession.currOffer = &offerParsed
 	log.Info().Msg("Media Description for CallId >>>>>>>>>>>>>>>>>>>> : " + sdpSession.callId)
 	for _, mDesc := range offerParsed.MediaDescriptions {
@@ -65,6 +80,12 @@ func (sdpSession *SDPSession) generateAnswer(offer []byte, unicastAddress string
 		for _, aAttr := range mDesc.Attributes {
 			if strings.Contains(aAttr.Value, AUDIO_CODEC) || strings.Contains(aAttr.Value, VIDEO_CODEC) {
 				log.Info().Msg("Media Attribute Key: " + aAttr.Key + " Value: " + aAttr.Value)
+			} else if strings.Contains(aAttr.Key, CRYPTO) && strings.Compare(mDesc.MediaName.Media, "video") == 0 {
+				log.Info().Msg("Media Attribute Key: " + aAttr.Key + " Value: " + aAttr.Value)
+				videoAttributes = append(videoAttributes, aAttr)
+			} else if strings.Contains(aAttr.Key, CRYPTO) && strings.Compare(mDesc.MediaName.Media, "audio") == 0 {
+				log.Info().Msg("Media Attribute Key: " + aAttr.Key + " Value: " + aAttr.Value)
+				audioAttributes = append(audioAttributes, aAttr)
 			} else {
 				log.Debug().Msg("Media Attribute Key: " + aAttr.Key + " Value: " + aAttr.Value)
 			}
@@ -104,12 +125,7 @@ func (sdpSession *SDPSession) generateAnswer(offer []byte, unicastAddress string
 					Protos:  []string{"RTP", "AVP"},
 					Formats: []string{"0"},
 				},
-				Attributes: []sdp.Attribute{
-					{Key: "rtpmap", Value: "0 PCMU/8000"},
-					{Key: "ptime", Value: "20"},
-					{Key: "maxptime", Value: "150"},
-					{Key: "sendrecv"},
-				},
+				Attributes: audioAttributes,
 			},
 			{
 				MediaName: sdp.MediaName{
@@ -118,11 +134,7 @@ func (sdpSession *SDPSession) generateAnswer(offer []byte, unicastAddress string
 					Protos:  []string{"RTP", "AVP"},
 					Formats: []string{"103"},
 				},
-				Attributes: []sdp.Attribute{
-					{Key: "rtpmap", Value: "103 H264/90000"},
-					{Key: "fmtp", Value: "103 packetization-mode=1;profile-level-id=42e01f"},
-					{Key: "sendrecv"},
-				},
+				Attributes: videoAttributes,
 			},
 		},
 	}
