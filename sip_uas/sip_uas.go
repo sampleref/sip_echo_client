@@ -13,7 +13,16 @@ import (
 
 var sipCalls = make(map[string]chan *SipMessage)
 
-func RunSipUasDialog(username string, localHost string, port int, publicHost string) {
+func StartSipServer(username string, localHost string, port int, publicHost string) (server *sipgo.Server) {
+	ua, _ := sipgo.NewUA()           // Build user agent
+	srv, _ := sipgo.NewServer(ua)    // Creating server handle
+	client, _ := sipgo.NewClient(ua) // Creating client handle
+	go runSipUasDialog(username, localHost, port, publicHost, srv, client)
+	return srv
+}
+
+func runSipUasDialog(username string, localHost string, port int, publicHost string,
+	srv *sipgo.Server, client *sipgo.Client) (server *sipgo.Server) {
 
 	log.Info().Msg("Running UAS With localHost " + localHost + ":" + strconv.Itoa(port) +
 		" PublicHost: " + publicHost)
@@ -21,10 +30,6 @@ func RunSipUasDialog(username string, localHost string, port int, publicHost str
 
 	sig := make(chan os.Signal)
 	signal.Notify(sig, os.Interrupt)
-
-	ua, _ := sipgo.NewUA()           // Build user agent
-	srv, _ := sipgo.NewServer(ua)    // Creating server handle
-	client, _ := sipgo.NewClient(ua) // Creating client handle
 
 	uasContact := sip.ContactHeader{
 		Address: sip.Uri{User: username, Host: publicHost, Port: port},
@@ -53,7 +58,7 @@ func RunSipUasDialog(username string, localHost string, port int, publicHost str
 				hostname:    publicHost,
 				sipPort:     port,
 			}
-			go sipCall.HandleSipRequests()
+			go sipCall.HandleSipRequests(&sipCalls)
 			sipCalls[callId.String()] = reqChan
 			reqChan <- &SipMessage{
 				request:  req,

@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"flag"
+	"fmt"
+	"github.com/rs/zerolog/log"
+	"os"
 	"sip_echo_client/sip_uas"
 	"sip_echo_client/sip_util"
+	"strings"
 )
 
 func main() {
@@ -17,5 +22,27 @@ func main() {
 	sip_util.InitLogger(*logLevel)
 	sip_util.MediaPortStart = *mediaPort
 	sip_util.InitializePorts()
-	sip_uas.RunSipUasDialog(*username, *dialogHost, *dialogPort, *publicHost)
+	sip_util.StartCounters()
+	sipServer := sip_uas.StartSipServer(*username, *dialogHost, *dialogPort, *publicHost)
+
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("->>>>>>> q:Quit >>>>>> r:RTP Stats All >>>>>> rl:RTP Stats Live >>>>>: \n")
+		text, _ := reader.ReadString('\n')
+		text = strings.Replace(text, "\n", "", -1)
+
+		if strings.Compare("q", text) == 0 {
+			log.Info().Msg("Shutting down...")
+			sipServer.Close()
+			sip_util.StopRTPStats()
+			log.Info().Msg("Shutting Complete!")
+			os.Exit(0)
+		}
+		if strings.Compare("r", text) == 0 {
+			sip_util.PrintAllStats = !sip_util.PrintAllStats
+		}
+		if strings.Compare("rl", text) == 0 {
+			sip_util.PrintLiveStats = !sip_util.PrintLiveStats
+		}
+	}
 }

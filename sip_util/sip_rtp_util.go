@@ -35,7 +35,9 @@ func FindNextFreePort() int {
 		if err != nil {
 			log.Err(err)
 			log.Error().Msg("Port " + fmt.Sprint(FreePortInRange) + " Looks occupied, trying other")
-			conn.Close()
+			if conn != nil {
+				conn.Close()
+			}
 		} else {
 			conn.Close()
 			log.Info().Msg("Port " + fmt.Sprint(FreePortInRange) + " Allocated")

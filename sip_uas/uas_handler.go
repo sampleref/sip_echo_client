@@ -5,6 +5,7 @@ import (
 	"github.com/emiago/sipgo"
 	"github.com/emiago/sipgo/sip"
 	"github.com/rs/zerolog/log"
+	"sip_echo_client/sip_util"
 	"time"
 )
 
@@ -33,7 +34,7 @@ type SipMessage struct {
 	reInvite bool
 }
 
-func (sipCall *SipCall) HandleSipRequests() {
+func (sipCall *SipCall) HandleSipRequests(sipCalls *map[string]chan *SipMessage) {
 	for sipMsg := range *sipCall.sipRequests {
 		switch sipMsg.request.Method {
 		case sip.INVITE:
@@ -53,6 +54,8 @@ func (sipCall *SipCall) HandleSipRequests() {
 			log.Info().Msg("Unhandled SIP Method " + sipMsg.request.Method.String())
 		}
 	}
+	delete(*sipCalls, sipCall.callId)
+	sip_util.StopCallStatus(sipCall.callId)
 	log.Info().Msg("Stopped reading messages for " + sipCall.callId)
 }
 
@@ -64,8 +67,10 @@ func (sipCall *SipCall) HandleUasInvite(req *sip.Request, tx sip.ServerTransacti
 		return
 	}
 	sipCall.dialogSrvSession = dlgSrvSession
-	dlgSrvSession.Respond(sip.StatusTrying, "Trying", nil)
-	dlgSrvSession.Respond(sip.StatusRinging, "Ringing", nil)
+	sipCall.dialogSrvSession.Respond(sip.StatusTrying, "Trying", nil)
+	sipCall.dialogSrvSession.Respond(sip.StatusRinging, "Ringing", nil)
+
+	sip_util.NewCallStats(sipCall.callId)
 
 	sipCall.rtpSession = RTPSession{callId: sipCall.callId, reInvite: false}
 	sipCall.sdpSession = SDPSession{callId: sipCall.callId}
@@ -153,14 +158,17 @@ func (sipCall *SipCall) HandleUasReInvite(req *sip.Request, tx sip.ServerTransac
 }
 
 func (sipCall *SipCall) HandleBye(req *sip.Request, tx sip.ServerTransaction) {
+	log.Info().Msg("Accepting SIP BYE: " + req.From().String() + "\n")
 	sipCall.rtpSession.StopRTPListeners()
 	sipCall.dialogSrv.ReadBye(req, tx)
 	if err := tx.Respond(sip.NewResponseFromRequest(req, sip.StatusOK, "", nil)); err != nil {
 		log.Err(err)
 	}
+	close(*sipCall.sipRequests)
 }
 
 func (sipCall *SipCall) HandleAck(req *sip.Request, tx sip.ServerTransaction) {
+	log.Info().Msg("Accepting SIP ACK: " + req.Contact().String() + "\n")
 	sipCall.dialogSrv.ReadAck(req, tx)
 	if err := tx.Respond(sip.NewResponseFromRequest(req, sip.StatusOK, "", nil)); err != nil {
 		log.Err(err)
@@ -168,11 +176,14 @@ func (sipCall *SipCall) HandleAck(req *sip.Request, tx sip.ServerTransaction) {
 }
 
 func (sipCall *SipCall) SendBye(req *sip.Request, tx sip.ServerTransaction) {
+	log.Info().Msg("Sending SIP BYE: " + req.Contact().String() + "\n")
 	sipCall.rtpSession.StopRTPListeners()
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 	sipCall.dialogSrvSession.Bye(ctx)
+	close(*sipCall.sipRequests)
 }
 
-func (sipCall *SipCall) SendAck() {
+func (sipCall *SipCall) SendAck(req *sip.Request, tx sip.ServerTransaction) {
+	log.Info().Msg("Sending SIP ACK: " + req.Contact().String() + "\n")
 	sipCall.dialogSrvSession.Respond(sip.StatusOK, "OK", nil)
 }

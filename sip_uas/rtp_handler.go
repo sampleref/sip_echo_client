@@ -58,7 +58,9 @@ func (rtpSession *RTPSession) StartRTPListenerAudioVideo() (int, int, error) {
 				log.Err(err)
 				return
 			}
+			sip_util.AudioPckRecv <- rtpSession.callId
 			aConn.WriteToUDP(buff[:n], raddr)
+			sip_util.AudioPckSent <- rtpSession.callId
 		}
 		log.Info().Msg("Closing audio udp for callId " + rtpSession.callId)
 		aConn.Close()
@@ -94,7 +96,9 @@ func (rtpSession *RTPSession) StartRTPListenerAudioVideo() (int, int, error) {
 				log.Err(err)
 				return
 			}
+			sip_util.VideoPckRecv <- rtpSession.callId
 			vConn.WriteToUDP(buff[:n], raddr)
+			sip_util.VideoPckSent <- rtpSession.callId
 		}
 		log.Info().Msg("Closing video udp for callId " + rtpSession.callId)
 		vConn.Close()
