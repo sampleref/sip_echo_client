@@ -23,7 +23,7 @@ func main() {
 	sip_util.MediaPortStart = *mediaPort
 	sip_util.InitializePorts()
 	sip_util.StartCounters()
-	sipServer := sip_uas.StartSipServer(*username, *dialogHost, *dialogPort, *publicHost)
+	sip_uas.StartSipServer(*username, *dialogHost, *dialogPort, *publicHost)
 
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -33,7 +33,7 @@ func main() {
 
 		if strings.Compare("q", text) == 0 {
 			log.Info().Msg("Shutting down...")
-			sipServer.Close()
+			sip_uas.StopSipServer()
 			sip_util.StopRTPStats()
 			log.Info().Msg("Shutting Complete!")
 			os.Exit(0)

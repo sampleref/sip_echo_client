@@ -9,16 +9,17 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"time"
 )
 
 var sipCalls = make(map[string]chan *SipMessage)
+var sipServer *sipgo.Server
 
-func StartSipServer(username string, localHost string, port int, publicHost string) (server *sipgo.Server) {
-	ua, _ := sipgo.NewUA()           // Build user agent
-	srv, _ := sipgo.NewServer(ua)    // Creating server handle
-	client, _ := sipgo.NewClient(ua) // Creating client handle
-	go runSipUasDialog(username, localHost, port, publicHost, srv, client)
-	return srv
+func StartSipServer(username string, localHost string, port int, publicHost string) {
+	ua, _ := sipgo.NewUA()             // Build user agent
+	sipServer, _ = sipgo.NewServer(ua) // Creating server handle
+	client, _ := sipgo.NewClient(ua)   // Creating client handle
+	go runSipUasDialog(username, localHost, port, publicHost, sipServer, client)
 }
 
 func runSipUasDialog(username string, localHost string, port int, publicHost string,
@@ -105,4 +106,30 @@ func runSipUasDialog(username string, localHost string, port int, publicHost str
 		srv.Close()
 		return
 	}
+}
+
+func StopSipServer() {
+	log.Info().Msg("Stopping SIP Server")
+	for callId := range sipCalls {
+		sipCalls[callId] <- &SipMessage{request: &sip.Request{Method: "SEND_BYE"}, tx: nil}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		for len(sipCalls) > 0 {
+		}
+		done <- struct{}{}
+	}()
+	select {
+	case <-done:
+		log.Info().Msg("All SIP Calls Closed!")
+		break
+	case <-ctx.Done():
+		log.Warn().Msg("Time out before closing SIP Calls!")
+		break
+	}
+	sipServer.Close()
+	log.Info().Msg("Stopped SIP server")
 }

@@ -9,6 +9,10 @@
    **-p**, Default: 5063, "sip port"   
    **-d**, Default: "info", "Log Level: trace/debug/info"  
    **-mp**, Default: 40100, "Media Port Starts from and next 100 ports" 
+5. Options in Binary Run, press option and hit Enter:  
+   **q**, "Quit, stops all calls with BYE and exits"    
+   **r**, "Toggles to show basic UDP Rx/Tx for all calls"  
+   **rl**, "Toggles to show basic UDP Rx/Tx for live calls"
 
 #### Build binary
 `go build -o bin/sip_client SipApp.go`

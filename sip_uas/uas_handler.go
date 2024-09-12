@@ -50,6 +50,9 @@ func (sipCall *SipCall) HandleSipRequests(sipCalls *map[string]chan *SipMessage)
 		case sip.ACK:
 			sipCall.HandleAck(sipMsg.request, sipMsg.tx)
 			break
+		case "SEND_BYE":
+			sipCall.SendBye(sipCall.req, nil)
+			break
 		default:
 			log.Info().Msg("Unhandled SIP Method " + sipMsg.request.Method.String())
 		}
@@ -60,15 +63,15 @@ func (sipCall *SipCall) HandleSipRequests(sipCalls *map[string]chan *SipMessage)
 }
 
 func (sipCall *SipCall) HandleUasInvite(req *sip.Request, tx sip.ServerTransaction) {
-	dlgSrvSession, err := sipCall.dialogSrv.ReadInvite(req, tx)
+	var err error
+	sipCall.dialogSrvSession, err = sipCall.dialogSrv.ReadInvite(req, tx)
 	if err != nil {
 		log.Err(err)
 		sipCall.SendBye(req, tx)
 		return
 	}
-	sipCall.dialogSrvSession = dlgSrvSession
-	sipCall.dialogSrvSession.Respond(sip.StatusTrying, "Trying", nil)
-	sipCall.dialogSrvSession.Respond(sip.StatusRinging, "Ringing", nil)
+	tx.Respond(sip.NewResponseFromRequest(req, sip.StatusTrying, "Trying", nil))
+	tx.Respond(sip.NewResponseFromRequest(req, sip.StatusRinging, "Ringing", nil))
 
 	sip_util.NewCallStats(sipCall.callId)
 
@@ -90,6 +93,7 @@ func (sipCall *SipCall) HandleUasInvite(req *sip.Request, tx sip.ServerTransacti
 	res := sip.NewResponseFromRequest(req, 200, "OK", answer)
 	res.AppendHeader(&sip.ContactHeader{Address: sip.Uri{Host: sipCall.hostname, Port: sipCall.sipPort}})
 	res.AppendHeader(&contentTypeHeaderSDP)
+	sipCall.dialogSrvSession.InviteResponse = res
 	if err = tx.Respond(res); err != nil {
 		log.Err(err)
 		sipCall.SendBye(req, tx)
@@ -102,14 +106,17 @@ func (sipCall *SipCall) HandleUasReInvite(req *sip.Request, tx sip.ServerTransac
 	sipCall.toTag = req.To().Params["tag"] //Hack to preserve tag in To header
 	if len(sipCall.toTag) == 0 {
 		log.Error().Msg("Not a reInvite, Invalid to tag for callId: " + sipCall.callId)
+		sipCall.SendBye(req, tx)
 		return
 	}
-	dlgSrvSession, err := sipCall.dialogSrv.ReadInvite(req, tx)
+
+	var err error
+	sipCall.dialogSrvSession, err = sipCall.dialogSrv.ReadInvite(req, tx)
 	if err != nil {
 		log.Err(err)
+		sipCall.SendBye(req, tx)
 		return
 	}
-	sipCall.dialogSrvSession = dlgSrvSession
 
 	rtpSession := RTPSession{callId: sipCall.callId, reInvite: true}
 	existingOffer := sipCall.sdpSession.isCurrentOffer(req.Body())
@@ -143,6 +150,7 @@ func (sipCall *SipCall) HandleUasReInvite(req *sip.Request, tx sip.ServerTransac
 	res.To().Params["tag"] = sipCall.toTag
 	res.AppendHeader(&sip.ContactHeader{Address: sip.Uri{Host: sipCall.hostname, Port: sipCall.sipPort}})
 	res.AppendHeader(&contentTypeHeaderSDP)
+	sipCall.dialogSrvSession.InviteResponse = res
 	if err = tx.Respond(res); err != nil {
 		log.Err(err)
 		sipCall.SendBye(req, tx)
@@ -178,7 +186,7 @@ func (sipCall *SipCall) HandleAck(req *sip.Request, tx sip.ServerTransaction) {
 func (sipCall *SipCall) SendBye(req *sip.Request, tx sip.ServerTransaction) {
 	log.Info().Msg("Sending SIP BYE: " + req.Contact().String() + "\n")
 	sipCall.rtpSession.StopRTPListeners()
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	sipCall.dialogSrvSession.Bye(ctx)
 	close(*sipCall.sipRequests)
 }
